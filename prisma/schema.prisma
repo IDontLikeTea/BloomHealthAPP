@@ -1,0 +1,239 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/compassionate_health_tracker/nextjs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  hashedPassword String?
+  image          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  profile        Profile?
+  meals          Meal[]
+  exercises      Exercise[]
+  waterLogs      WaterLog[]
+  aiCompanion    AICompanion?
+  trackerCustomization TrackerCustomization?
+  notificationSettings NotificationSettings?
+  streaks        Streak[]
+  favoriteFoods  FavoriteFood[]
+  chatMessages   ChatMessage[]
+  feedbacks      Feedback[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Profile {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  height          Float?    // in cm (always stored in metric)
+  weight          Float?    // in kg (always stored in metric)
+  targetWeight    Float?    // in kg (always stored in metric)
+  age             Int?
+  gender          String?   // male, female, other
+  activityLevel   String?   // sedentary, light, moderate, active, very_active
+  goalType        String?   // weight_loss, weight_gain, muscle_building, maintenance, wellness
+  useMetric       Boolean   @default(true) // true = metric (cm/kg), false = imperial (ft-in/lbs)
+  dailyCalorieGoal Int?     // calculated or custom
+  dailyProteinGoal Float?   // in grams
+  dailyCarbsGoal   Float?   // in grams
+  dailyFatGoal     Float?   // in grams
+  dailyWaterGoal   Int?     // in ml
+  compassionateMode Boolean @default(true) // true = compassionate prompts, false = strict/rigid warnings
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Meal {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  mealType        String   // breakfast, lunch, dinner, snack
+  calories        Int
+  protein         Float    @default(0)
+  carbs           Float    @default(0)
+  fat             Float    @default(0)
+  imageUrl        String?  // cloud storage path for meal images
+  isPublic        Boolean  @default(false)
+  notes           String?
+  isAIGenerated   Boolean  @default(false)
+  loggedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, loggedAt])
+}
+
+model Exercise {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  type            String   // cardio, strength, flexibility, sports, other
+  duration        Int      // in minutes
+  caloriesBurned  Int
+  intensity       String?  // low, moderate, high
+  notes           String?
+  loggedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, loggedAt])
+}
+
+model WaterLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int      // in ml
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([userId, loggedAt])
+}
+
+model AICompanion {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String   @default("Bloom")
+  personality     String?  // supportive, gentle, encouraging
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model TrackerCustomization {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shape           String   @default("circle") // circle, heart, star, flower, butterfly, cloud
+  primaryColor    String   @default("#FFB6C1") // Light pink
+  secondaryColor  String?  @default("#DDA0DD") // Plum for gradient
+  useGradient     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model NotificationSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mealReminders         Boolean  @default(true)
+  mealReminderTimes     String[] @default(["08:00", "12:00", "18:00"])
+  waterReminders        Boolean  @default(true)
+  waterReminderInterval Int      @default(120) // in minutes
+  exerciseReminders     Boolean  @default(true)
+  exerciseReminderTime  String?  @default("17:00")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Streak {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // meal_logging, water, exercise
+  count     Int      @default(0)
+  lastDate  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, type])
+}
+
+model FavoriteFood {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  calories  Int
+  protein   Float    @default(0)
+  carbs     Float    @default(0)
+  fat       Float    @default(0)
+  servingSize String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, name])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   // user, assistant
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page      String   // which page the feedback was submitted from
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+}
